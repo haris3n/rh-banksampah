@@ -10,6 +10,20 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    protected $connection = 'proyek3';
+
+    public function hasRole(string $role): bool
+    {
+        return $this->getConnection()->table('model_has_roles as m')
+            ->join('roles as r', 'r.id', '=', 'm.role_id')
+            ->where('m.model_id', $this->id)->where('m.model_type', self::class)
+            ->where('r.guard_name', 'web')->where('r.name', $role)->exists();
+    }
+
+    public function getNameAttribute(): string
+    {
+        return $this->nama;
+    }
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -19,7 +33,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'nama',
         'email',
         'password',
     ];
@@ -42,6 +56,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'aktif' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];

@@ -23,3 +23,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 .slim/deepwork/
+/public/vendor/html5-qrcode.min.js
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

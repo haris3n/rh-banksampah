@@ -1,0 +1,1 @@
+<div class="scan-box">@svg('heroicon-o-qr-code')<p>Atau scan QR nasabah</p><button type="button" id="start-camera" class="button primary">Mulai Scan</button><button type="button" id="stop-camera" class="button" hidden>Hentikan Kamera</button><div id="qr-reader"></div><p id="camera-status" role="status"></p></div>

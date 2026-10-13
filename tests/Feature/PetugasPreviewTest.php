@@ -7,6 +7,20 @@ use Tests\TestCase;
 
 class PetugasPreviewTest extends TestCase
 {
+    public function test_operational_form_uses_reference_sidebar_and_real_submission(): void
+    {
+        $html = view('petugas.operational', [
+            'screen'=>'form','record'=>null,'selected'=>null,'details'=>collect(),
+            'customers'=>collect(), 'types'=>collect(),
+            'errors'=>new \Illuminate\Support\ViewErrorBag,
+        ])->render();
+        $this->assertStringContainsString('Navigasi petugas', $html);
+        $this->assertStringContainsString('Data untuk Pengepul', $html);
+        $this->assertStringContainsString('petugas-operational.css', $html);
+        $this->assertStringContainsString('action="/petugas/setoran"', $html);
+        $this->assertStringContainsString('id="identity-card" hidden', $html);
+        $this->assertStringContainsString('id="stop-camera" class="button" hidden', $html);
+    }
     public function test_preview_is_opt_in(): void
     {
         config(['petugas.preview' => false]);

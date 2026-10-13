@@ -32,6 +32,19 @@ return [
 
     'connections' => [
 
+        'proyek3' => [
+            'driver' => 'pgsql',
+            'host' => env('P3_DB_HOST', '127.0.0.1'),
+            'port' => env('P3_DB_PORT', '55432'),
+            'database' => env('P3_DB_DATABASE', 'setorin_proyek3'),
+            'username' => env('P3_DB_USERNAME', 'setorin_local'),
+            'password' => env('P3_DB_PASSWORD', 'setorin-local-only'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'search_path' => 'public',
+            'sslmode' => env('P3_DB_SSLMODE', 'prefer'),
+        ],
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),

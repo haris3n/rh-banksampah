@@ -4,26 +4,38 @@
     const $ = id => document.getElementById(id);
     const page = document.body.dataset.page;
     const money = n => 'Rp' + new Intl.NumberFormat('id-ID').format(n);
-    const kg = n => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(n / 100) + ' kg';
+    const quantity = (n, unit) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(n / 100) + ' ' + unit;
+    const quantities = items => ['kg', 'liter'].map(unit => quantity(items.filter(i => i.unit === unit).reduce((n,i) => n+i.weight,0), unit)).join(' + ');
+    const recorder = id => id === 1 ? 'Haris' : 'Petugas Uji 2';
     const escape = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
     const day = date => new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Jakarta', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date(date));
     const today = day(new Date());
     const catalog = [
-        { id:1, name:'Botol Plastik PET Bersih', buy:5000, sell:5200 },
-        { id:2, name:'Kertas & Kardus', buy:2500, sell:2700 },
-        { id:3, name:'Kaleng Aluminium', buy:15000, sell:15200 },
-        { id:4, name:'Kaca', buy:1500, sell:1700 },
+        { id:1, name:'Emberan', category:'Plastik', unit:'kg', buy:1600, sell:null },
+        { id:2, name:'Kaleng', category:'Logam', unit:'kg', buy:1600, sell:null },
+        { id:3, name:'Jerigen', category:'Plastik', unit:'kg', buy:1600, sell:null },
+        { id:4, name:'Duplex', category:'Kertas', unit:'kg', buy:400, sell:null },
+        { id:5, name:'Le Mineral', category:'Plastik', unit:'kg', buy:800, sell:null },
+        { id:6, name:'Kardus', category:'Kertas', unit:'kg', buy:1300, sell:null },
+        { id:7, name:'Kertas HVS', category:'Kertas', unit:'kg', buy:1200, sell:null },
+        { id:8, name:'Buku', category:'Kertas', unit:'kg', buy:800, sell:null },
+        { id:9, name:'Botol Bersih', category:'Plastik', unit:'kg', buy:3200, sell:null },
+        { id:10, name:'Tutup Botol', category:'Plastik', unit:'kg', buy:2000, sell:null },
+        { id:11, name:'Ringe Gelas Plastik', category:'Plastik', unit:'kg', buy:1600, sell:null },
+        { id:12, name:'Minyak Jelantah Bersih', category:'Minyak Jelantah', unit:'liter', buy:4000, sell:null },
+        { id:13, name:'Minyak Jelantah Endapan', category:'Minyak Jelantah', unit:'liter', buy:1500, sell:null },
+        { id:14, name:'Kaca', category:'Kaca', unit:'kg', buy:240, sell:null },
     ];
     const customers = [
         { id:1, name:'Siti Amelia', phone:'081234567890', address:'Jl. Danau Toba No. 12, Malang', qr:'RH-DEMO-A7K2', balance:184500 },
         { id:2, name:'Budi Santoso', phone:'085712345678', address:'Jl. Melati No. 8, Malang', qr:'RH-DEMO-P9M4', balance:52000 },
         { id:3, name:'Rina Wulandari', phone:'081398765432', address:'Jl. Mawar No. 5, Malang', qr:'RH-DEMO-X2B8', balance:34000 },
     ];
-    const key = 'rh-petugas-preview-v1';
+    // ponytail: browser-only snapshots; replace with server ledger at shared DB integration.
+    const key = 'rh-petugas-preview-v2';
     const snapshot = (type, weight) => ({ ...catalog.find(c => c.id === Number(type)), weight });
     const subtotal = item => Math.floor((item.weight * item.buy + 50) / 100);
     const total = d => d.items.reduce((n, item) => n + subtotal(item), 0);
-    const weight = d => d.items.reduce((n, item) => n + item.weight, 0);
     const seed = () => [
         { id:'DEMO-001', customer:1, owner:1, status:'Selesai', created:new Date().toISOString(), verified:new Date().toISOString(), items:[snapshot(1,450), snapshot(2,720)] },
         { id:'DEMO-002', customer:2, owner:2, status:'Menunggu Verifikasi', created:new Date().toISOString(), items:[snapshot(3,210)] },
@@ -56,49 +68,51 @@
         $('selected-customer').innerHTML = `<strong>${escape(c.name)}</strong><p>${c.phone}<br>${escape(c.address)}</p>`;
         if ($('customer-detail')) {
             const history = deposits.filter(d => d.customer === c.id);
-            $('customer-detail').innerHTML = `<h2>${escape(c.name)}</h2><span class="badge">Aktif · contoh</span><dl class="details-list"><dt>No. HP</dt><dd>${c.phone}</dd><dt>Alamat</dt><dd>${escape(c.address)}</dd><dt>Saldo demo</dt><dd><strong>${money(balance(c))}</strong></dd><dt>Total berat selesai</dt><dd>${kg(history.filter(d=>d.status==='Selesai').reduce((n,d)=>n+weight(d),0))}</dd></dl><a class="button primary" href="setoran-baru?nasabah=${c.id}">Pilih untuk Setoran Baru</a><h2 style="margin-top:24px">Riwayat Setoran</h2>${history.map(d=>`<p><button class="text-button" data-detail="${d.id}">${d.id}</button> · ${escape(d.status)} · ${money(total(d))}</p>`).join('') || '<p>Belum ada setoran.</p>'}`;
+            $('customer-detail').innerHTML = `<h2>${escape(c.name)}</h2><span class="badge">Aktif · contoh</span><dl class="details-list"><dt>No. HP</dt><dd>${c.phone}</dd><dt>Alamat</dt><dd>${escape(c.address)}</dd><dt>Saldo demo</dt><dd><strong>${money(balance(c))}</strong></dd><dt>Total setoran selesai</dt><dd>${quantities(history.filter(d=>d.status==='Selesai').flatMap(d=>d.items))}</dd></dl><a class="button primary" href="setoran-baru?nasabah=${c.id}">Pilih untuk Setoran Baru</a><h2 style="margin-top:24px">Riwayat Setoran</h2>${history.map(d=>`<p><button class="text-button" data-detail="${d.id}">${d.id}</button> · ${escape(d.status)} · ${money(total(d))}</p>`).join('') || '<p>Belum ada setoran.</p>'}`;
         }
     }
     function renderItems() {
         if (!$('items')) return;
-        $('items').innerHTML = formItems.map((item, i) => `<div class="item-row"><label>Jenis sampah ${i+1}<select data-type="${i}">${catalog.map(c=>`<option value="${c.id}" ${c.id===item.id?'selected':''}>${escape(c.name)}</option>`).join('')}</select></label><label>Berat (kg)<input data-weight="${i}" type="number" inputmode="decimal" min="0.01" max="10000" step="0.01" required value="${item.weight ? item.weight / 100 : ''}"></label><label>${money(item.buy)}/kg<output id="subtotal-${i}">${money(subtotal(item))}</output></label><button type="button" class="button" data-remove="${i}" aria-label="Hapus jenis ${i+1}" ${formItems.length===1?'disabled':''}>×</button></div>`).join('');
+        $('items').innerHTML = formItems.map((item, i) => `<div class="item-row"><label>Jenis sampah ${i+1}<select data-type="${i}">${[...new Set(catalog.map(c=>c.category))].map(category=>`<optgroup label="${category}">${catalog.filter(c=>c.category===category).map(c=>`<option value="${c.id}" ${c.id===item.id?'selected':''}>${escape(c.name)}</option>`).join('')}</optgroup>`).join('')}</select></label><label>${item.unit==='liter'?'Volume (liter)':'Berat (kg)'}<input data-weight="${i}" type="number" inputmode="decimal" min="0.01" max="10000" step="0.01" required value="${item.weight ? item.weight / 100 : ''}"></label><label>${money(item.buy)}/${item.unit}<output id="subtotal-${i}">${money(subtotal(item))}</output></label><button type="button" class="button" data-remove="${i}" aria-label="Hapus jenis ${i+1}" ${formItems.length===1?'disabled':''}>×</button></div>`).join('');
         renderTotals();
     }
     function renderTotals() {
         if (!$('form-total')) return;
         formItems.forEach((item,i)=> { if ($('subtotal-'+i)) $('subtotal-'+i).textContent = money(subtotal(item)); });
-        $('form-weight').textContent = kg(weight({ items:formItems }));
+        $('form-weight').textContent = quantities(formItems);
         $('form-total').textContent = money(total({ items:formItems }));
     }
     function renderReports() {
         const completed = deposits.filter(d=>d.status==='Selesai' && inPeriod(d));
         const bought = completed.reduce((n,d)=>n+total(d),0);
-        const sold = completed.reduce((n,d)=>n+d.items.reduce((v,i)=>v+Math.floor((i.weight*i.sell+50)/100),0),0);
+        const missing = new Set(completed.flatMap(d=>d.items).filter(i=>i.sell == null).map(i=>i.id)).size;
+        const sold = missing ? null : completed.reduce((n,d)=>n+d.items.reduce((v,i)=>v+Math.floor((i.weight*i.sell+50)/100),0),0);
         if ($('stat-count')) {
             $('stat-count').textContent = completed.length + ' transaksi';
-            $('stat-weight').textContent = kg(completed.reduce((n,d)=>n+weight(d),0));
-            $('stat-value').textContent = money(page==='pengepul'?sold:bought);
-            if (page==='pengepul') { $('value-label').textContent='Estimasi nilai jual'; $('value-note').textContent='Dari harga jual snapshot'; }
+            $('stat-weight').textContent = quantities(completed.flatMap(d=>d.items));
+            $('stat-value').textContent = page==='pengepul' && missing ? 'Belum tersedia' : money(page==='pengepul'?sold:bought);
+            if (page==='pengepul') { $('value-label').textContent='Estimasi nilai jual'; $('value-note').textContent=missing?`Harga jual ${missing} jenis sampah belum tersedia.`:'Dari harga jual snapshot'; }
         }
         if ($('transactions')) {
             const query = $('transaction-search').value.toLowerCase();
             const status = $('status-filter').value;
             const rows = deposits.filter(d=>inPeriod(d) && (!status || d.status===status) && (d.id+' '+customer(d.customer).name).toLowerCase().includes(query));
-            $('transactions').innerHTML = [...rows].reverse().map(d=>`<tr><td>${d.id}</td><td>${escape(customer(d.customer).name)}<br><small>${customer(d.customer).phone} · Petugas ${d.owner}</small></td><td>${kg(weight(d))}</td><td><strong>${money(total(d))}</strong></td><td><span class="badge ${d.status==='Menunggu Verifikasi'?'waiting':d.status==='Dibatalkan'?'cancelled':''}">${d.status}</span></td><td><button class="button" data-detail="${d.id}">Cek Transaksi</button></td></tr>`).join('') || '<tr><td class="empty" colspan="6">Tidak ada transaksi sesuai filter.</td></tr>';
+            $('transactions').innerHTML = [...rows].reverse().map(d=>`<tr><td>${d.id}</td><td>${escape(customer(d.customer).name)}<br><small>${customer(d.customer).phone} · ${recorder(d.owner)}</small></td><td>${quantities(d.items)}</td><td><strong>${money(total(d))}</strong></td><td><span class="badge ${d.status==='Menunggu Verifikasi'?'waiting':d.status==='Dibatalkan'?'cancelled':''}">${d.status}</span></td><td><button class="button" data-detail="${d.id}">Cek Transaksi</button></td></tr>`).join('') || '<tr><td class="empty" colspan="6">Tidak ada transaksi sesuai filter.</td></tr>';
             $('transaction-count').textContent = rows.length + ' transaksi dalam periode ini.';
         }
         if ($('collector-rows')) {
             const groups = new Map();
-            completed.flatMap(d=>d.items).forEach(i=> { const g=groups.get(i.id)||{name:i.name,weight:0,buy:0,sell:0,details:[]}; g.weight+=i.weight; g.buy+=subtotal(i); g.sell+=Math.floor((i.weight*i.sell+50)/100); g.details.push(`${kg(i.weight)} × ${money(i.sell)}/kg`); groups.set(i.id,g); });
-            $('collector-rows').innerHTML = [...groups.values()].map(g=>`<tr><td><strong>${escape(g.name)}</strong><details><summary>Rincian snapshot</summary>${g.details.map(v=>`<p>${escape(v)}</p>`).join('')}</details></td><td>${kg(g.weight)}</td><td>${money(g.buy)}</td><td><strong>${money(g.sell)}</strong></td><td>${money(g.sell-g.buy)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Belum ada setoran selesai pada periode ini.</td></tr>';
-            $('collector-margin').textContent=money(sold-bought);
+            completed.flatMap(d=>d.items).forEach(i=> { const groupKey=`${i.id}:${i.unit}`; const g=groups.get(groupKey)||{name:i.name,unit:i.unit,weight:0,buy:0,sell:0,missing:false,details:[]}; g.weight+=i.weight; g.buy+=subtotal(i); g.missing ||= i.sell == null; if(i.sell != null) g.sell+=Math.floor((i.weight*i.sell+50)/100); g.details.push(`${quantity(i.weight,i.unit)} · beli ${money(i.buy)}/${i.unit} · jual ${i.sell == null?'belum tersedia':money(i.sell)+'/'+i.unit}`); groups.set(groupKey,g); });
+            $('collector-rows').innerHTML = [...groups.values()].map(g=>`<tr><td><strong>${escape(g.name)}</strong><details><summary>Rincian snapshot</summary>${g.details.map(v=>`<p>${escape(v)}</p>`).join('')}</details></td><td>${quantity(g.weight,g.unit)}</td><td>${money(g.buy)}</td><td><strong>${g.missing?'Belum tersedia':money(g.sell)}</strong></td><td>${g.missing?'Belum tersedia':money(g.sell-g.buy)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Belum ada setoran selesai pada periode ini.</td></tr>';
+            $('collector-margin').textContent=missing?'Belum tersedia':money(sold-bought);
+            $('collector-buy').textContent=money(bought);
         }
     }
     function detail(id, confirm = false) {
         const d=deposits.find(d=>d.id===id); if(!d) return;
         const c=customer(d.customer);
         $('dialog-title').textContent=confirm?'Konfirmasi Verifikasi':d.status==='Selesai'?'Struk Setoran · Demo':'Detail Setoran';
-        $('dialog-content').innerHTML=`<span class="badge">${d.status}</span><h3>${d.id} · ${escape(c.name)}</h3><p>${c.phone}<br>${escape(c.address)}</p><p>${new Date(d.verified||d.created).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB · Petugas ${d.owner}</p><div class="table-scroll"><table><thead><tr><th>Jenis</th><th>Berat</th><th>Harga beli/kg</th><th>Subtotal</th></tr></thead><tbody>${d.items.map(i=>`<tr><td>${escape(i.name)}</td><td>${kg(i.weight)}</td><td>${money(i.buy)}</td><td>${money(subtotal(i))}</td></tr>`).join('')}</tbody></table></div><div class="total-strip"><strong>${kg(weight(d))}</strong><strong>${money(total(d))}</strong></div>${d.reason?`<p>Alasan pembatalan: ${escape(d.reason)}</p>`:''}${confirm?'<p>Pastikan jenis dan berat sudah benar. Setelah verifikasi, setoran terkunci.</p>':''}<p class="muted">Bukti simulasi antarmuka, bukan transaksi atau saldo sebenarnya.</p>`;
+        $('dialog-content').innerHTML=`${$('receipt-brand').innerHTML}<span class="badge">${d.status}</span><h3>${d.id} · ${escape(c.name)}</h3><p>${c.phone}<br>${escape(c.address)}</p><p>${new Date(d.verified||d.created).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB · ${recorder(d.owner)}</p><div class="table-scroll"><table><thead><tr><th>Jenis</th><th>Jumlah & satuan</th><th>Harga beli/satuan</th><th>Subtotal</th></tr></thead><tbody>${d.items.map(i=>`<tr><td>${escape(i.name)}</td><td>${quantity(i.weight,i.unit)}</td><td>${money(i.buy)}/${i.unit}</td><td>${money(subtotal(i))}</td></tr>`).join('')}</tbody></table></div><div class="total-strip"><strong>${quantities(d.items)}</strong><strong>${money(total(d))}</strong></div>${d.reason?`<p>Alasan pembatalan: ${escape(d.reason)}</p>`:''}${confirm?'<p>Pastikan jenis, jumlah, dan satuan sudah benar. Setelah verifikasi, setoran terkunci.</p>':''}<p class="muted">Bukti simulasi antarmuka, bukan transaksi atau saldo sebenarnya.</p>`;
         const allowed=d.owner===1 && d.status==='Menunggu Verifikasi';
         $('dialog-actions').innerHTML=allowed?(confirm?`<button class="button primary" data-verify="${id}">Ya, Verifikasi Setoran Demo</button>`:`<button class="button primary" data-confirm="${id}">Verifikasi</button><a class="button" href="setoran-baru?edit=${id}">Edit</a><button class="button danger" data-cancel="${id}">Batalkan</button>`):'<p class="muted">Setoran selesai/dibatalkan terkunci. Hanya pencatat yang dapat mengubah setoran menunggu.</p>';
         if(!$('deposit-dialog').open) $('deposit-dialog').showModal();
@@ -119,14 +133,14 @@
         }
     });
     $('items')?.addEventListener('input',e=>{if(e.target.dataset.weight!==undefined){const index=Number(e.target.dataset.weight);formItems[index].weight=Math.round(Number(e.target.value)*100);renderTotals();}});
-    $('items')?.addEventListener('change',e=>{if(e.target.dataset.type!==undefined){const index=Number(e.target.dataset.type);formItems[index]=snapshot(e.target.value,formItems[index].weight);renderItems();}});
+    $('items')?.addEventListener('change',e=>{if(e.target.dataset.type!==undefined){const index=Number(e.target.dataset.type);const old=formItems[index];const next=snapshot(e.target.value,old.weight);if(next.unit!==old.unit)next.weight=0;formItems[index]=next;renderItems();}});
     $('add-item')?.addEventListener('click',()=>{formItems.push(snapshot(1,0));renderItems();});
     $('clear-form')?.addEventListener('click',()=>{editing=null;formItems=[snapshot(1,0)];$('form-status').textContent='Belum disimpan';renderItems();});
     $('deposit-form')?.addEventListener('submit',e=>{
         e.preventDefault();
         if(!customer(selected)){notify('Pilih nasabah sebelum menyimpan setoran.');return;}
-        if(formItems.some(i=>!Number.isInteger(i.weight)||i.weight<1||i.weight>1000000)){notify('Berat harus antara 0,01 dan 10.000 kg.');return;}
-        if(new Set(formItems.map(i=>i.id)).size!==formItems.length){notify('Gabungkan berat untuk jenis sampah yang sama.');return;}
+        if(formItems.some(i=>!Number.isInteger(i.weight)||i.weight<1||i.weight>1000000)){notify('Jumlah harus antara 0,01 dan 10.000 sesuai satuan jenis sampah.');return;}
+        if(new Set(formItems.map(i=>i.id)).size!==formItems.length){notify('Gabungkan jumlah untuk jenis sampah yang sama.');return;}
         let d=editing?deposits.find(d=>d.id===editing):null;
         if(editing && (!d||d.owner!==1||d.status!=='Menunggu Verifikasi')){notify('Setoran tidak dapat diedit.');return;}
         if(d){d.items=structuredClone(formItems);d.customer=selected;}

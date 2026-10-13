@@ -17,6 +17,24 @@ Tidak diperlukan migrate, database, npm, atau koneksi backend untuk preview.
 Composer menyediakan Blade Heroicons melalui dependensi Filament 3.3.
 Halaman preview adalah Blade terisolasi; panel/auth Filament operasional belum dihubungkan.
 
+## Data resmi dan satuan (pembaruan)
+
+Katalog berisi 14 harga beli resmi yang dikonfirmasi pemilik proyek. Kategori:
+Plastik, Logam, Kertas, Minyak Jelantah, Kaca. Dua jenis minyak memakai liter
+(bersih Rp4.000/liter, endapan Rp1.500/liter); lainnya kg, seluruhnya 2 desimal.
+Tanggal efektif harga belum diketahui. Harga jual snapshot nullable, bukan nol.
+Total estimasi jual/selisih disembunyikan jika ada snapshot harga jual kosong,
+termasuk kondisi sebagian harga sudah terisi. Nilai beli tetap ditampilkan.
+Total fisik dipisahkan kg dan liter pada semua ringkasan/struk, tidak dikonversi.
+Mengganti jenis dengan satuan berbeda mengosongkan jumlah agar tidak dianggap konversi.
+
+localStorage sekarang memakai `rh-petugas-preview-v2`; data v1 tidak digunakan
+atau dikonversi karena ID katalog berbeda. Data transaksi tetap dummy.
+Nama pencatat demo Haris; tidak ada email pribadi/password pada aset JavaScript.
+Logo sumber resources/photos/petugas/image.png disajikan lewat route gambar tetap.
+Kontak/alamat/Instagram mitra tampil di footer; struk memiliki identitas mitra.
+Jadwal belum diumumkan. Perubahan ini hanya di repo petugas.
+
 ## Yang dapat dicoba
 
 - Lima halaman sesuai referensi resources/photos/petugas, dengan navigasi responsif.
@@ -88,8 +106,9 @@ Halaman ini belum membuktikan konkurensi, otorisasi server, atau kesesuaian visu
 pixel-perfect seluruh halaman. Tes browser menjalankan demo dengan identitas
 Petugas 1 tetap, bukan autentikasi beberapa pengguna sebenarnya.
 
-Uji manual: tambah setoran Siti dengan PET 1,25 kg (Rp6.250), simpan, pastikan
-menunggu, verifikasi, struk Rp6.250, kembali ke transaksi lalu pastikan tidak ada
+Uji manual: tambah setoran Siti dengan Emberan 1,25 kg (Rp2.000) dan Minyak
+Jelantah Bersih 2,50 liter (Rp10.000), simpan, pastikan menunggu, verifikasi,
+struk Rp12.000 dengan kg/liter terpisah, kembali ke transaksi lalu pastikan tidak ada
 aksi verifikasi kedua. Buka seed Petugas 2, pastikan baca saja. Batalkan setoran
 baru dengan alasan, pastikan tidak masuk rekap. Tes ini hanya membuktikan demo;
 konkurensi PostgreSQL dan integritas saldo nyata harus diuji setelah integrasi.
