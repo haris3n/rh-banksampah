@@ -22,20 +22,25 @@ class PetugasController extends Controller
             throw ValidationException::withMessages(['email' => 'Akun tidak memiliki akses petugas.']);
         }
         $request->session()->regenerate();
-        return redirect('/petugas');
+        return redirect('/petugas/dashboard');
     }
 
     public function index(Request $request)
     {
         $db = DB::connection('proyek3');
+        $today = now('Asia/Jakarta')->format('Y-m-d');
+        $request->merge(['from'=>$request->input('from') ?: $today, 'to'=>$request->input('to') ?: $today]);
         $filters = $request->validate(['q'=>'nullable|string|max:100', 'status'=>'nullable|in:MENUNGGU_VERIFIKASI,SELESAI,DIBATALKAN', 'from'=>'nullable|date_format:Y-m-d', 'to'=>'nullable|date_format:Y-m-d|after_or_equal:from']);
-        $records = $db->table('setoran as s')->join('users as u', 'u.id', '=', 's.nasabah_id')
+        $query = $db->table('setoran as s')->join('users as u', 'u.id', '=', 's.nasabah_id')
             ->when($filters['q'] ?? null, fn($q,$v)=>$q->where(fn($q)=>$q->where('u.nama','ilike','%'.$v.'%')->orWhere('s.kode','ilike','%'.$v.'%')->orWhere('u.no_hp','like','%'.$v.'%')))
             ->when($filters['status'] ?? null, fn($q,$v)=>$q->where('s.status',$v))
             ->when($filters['from'] ?? null, fn($q,$v)=>$q->whereRaw("(coalesce(s.diverifikasi_at,s.created_at) AT TIME ZONE 'Asia/Jakarta')::date >= ?",[$v]))
             ->when($filters['to'] ?? null, fn($q,$v)=>$q->whereRaw("(coalesce(s.diverifikasi_at,s.created_at) AT TIME ZONE 'Asia/Jakarta')::date <= ?",[$v]))
-            ->select('s.*', 'u.nama')->orderByDesc('s.id')->paginate(20)->withQueryString();
-        return view('petugas.operational', ['screen' => 'index', 'records' => $records]);
+            ;
+        $summary = (clone $query)->selectRaw("count(*) as transaksi, coalesce(sum(s.total_kg) filter (where s.status='SELESAI'),0) as kg, coalesce(sum(s.total_liter) filter (where s.status='SELESAI'),0) as liter, coalesce(sum(s.total_nilai) filter (where s.status='SELESAI'),0) as nilai")->first();
+        $records = $query->select('s.*', 'u.nama', 'u.no_hp', 'u.alamat')->orderByDesc('s.id')->paginate(20)->withQueryString();
+        $items = $db->table('setoran_detail')->whereIn('setoran_id', $records->pluck('id'))->orderBy('id')->get()->groupBy('setoran_id');
+        return view('petugas.operational', ['screen' => 'index', 'records' => $records, 'summary'=>$summary, 'items'=>$items, 'filters'=>$filters]);
     }
 
     public function form(Request $request, ?int $id = null)
@@ -80,9 +85,28 @@ class PetugasController extends Controller
         $search=$data['q']??'';
         $customers=$query->where(fn($q)=>$q->where('nama','ilike','%'.$search.'%')->orWhere('no_hp','like','%'.$search.'%')->orWhereRaw('kode_qr::text = ?',[$search]))->orderBy('nama')->paginate(20)->withQueryString();
         $db=DB::connection('proyek3');
-        return view('petugas.operational',['screen'=>'customers','customers'=>$customers,'customer'=>$customer,
+
+        $totalKg = 0;
+        $totalLiter = 0;
+        if ($customer) {
+            $aggregates = $db->table('setoran')
+                ->where('nasabah_id', $id)
+                ->where('status', 'SELESAI')
+                ->selectRaw('coalesce(sum(total_kg), 0) as total_kg, coalesce(sum(total_liter), 0) as total_liter')
+                ->first();
+            $totalKg = $aggregates->total_kg ?? 0;
+            $totalLiter = $aggregates->total_liter ?? 0;
+        }
+
+        return view('petugas.operational',[
+            'screen'=>'customers',
+            'customers'=>$customers,
+            'customer'=>$customer,
+            'totalKg'=>$totalKg,
+            'totalLiter'=>$totalLiter,
             'saldo'=>$customer?$db->table('saldo_nasabah')->where('user_id',$id)->first():null,
-            'history'=>$customer?$db->table('setoran')->where('nasabah_id',$id)->orderByDesc('id')->paginate(10, ['*'], 'history_page'):null]);
+            'history'=>$customer?$db->table('setoran')->where('nasabah_id',$id)->orderByDesc('id')->paginate(10, ['*'], 'history_page'):null
+        ]);
     }
 
     public function search(Request $request)
@@ -107,15 +131,29 @@ class PetugasController extends Controller
         $db = DB::connection('proyek3');
         $record = $db->table('setoran')->find($id);
         abort_unless($record, 404);
-        return view('petugas.operational', ['screen' => 'show', 'record' => $record,
-            'customer' => User::findOrFail($record->nasabah_id), 'recorder' => User::findOrFail($record->petugas_id),
-            'details' => $db->table('setoran_detail')->where('setoran_id', $id)->get()]);
+
+        $saldoNasabah = $db->table('saldo_nasabah')->where('user_id', $record->nasabah_id)->first();
+
+        return view('petugas.operational', [
+            'screen' => 'show',
+            'record' => $record,
+            'customer' => User::findOrFail($record->nasabah_id),
+            'recorder' => User::findOrFail($record->petugas_id),
+            'saldoNasabah' => $saldoNasabah,
+            'details' => $db->table('setoran_detail')->where('setoran_id', $id)->get()
+        ]);
     }
 
     public function finish(Request $request, SetoranService $service, int $id)
     {
         $data = $request->validate(['action' => 'required|in:verify,cancel', 'alasan' => 'required_if:action,cancel|nullable|string|max:2000']);
         $service->finish($request->user(), $id, $data['action'] === 'cancel' ? $data['alasan'] : null);
-        return redirect('/petugas/setoran/'.$id);
+
+        $redirect = redirect('/petugas/setoran/'.$id);
+        if ($data['action'] === 'verify') {
+            $redirect->with('just_verified', true);
+        }
+
+        return $redirect;
     }
 }

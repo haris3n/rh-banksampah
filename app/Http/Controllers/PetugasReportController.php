@@ -25,17 +25,47 @@ class PetugasReportController extends Controller
             ->selectRaw('sum(d.jumlah) as jumlah, sum(d.subtotal) as beli, count(*) filter (where d.harga_jual_snapshot is null) as missing, sum(round(d.jumlah * d.harga_jual_snapshot)) as jual')
             ->groupBy('d.jenis_sampah_id', 'd.nama_jenis', 'd.satuan')->orderBy('d.nama_jenis')->get();
         $missing = $groups->where('missing', '>', 0)->count();
+        $breakdown = (clone $query)->join('setoran_detail as d','d.setoran_id','=','s.id')
+            ->select('d.jenis_sampah_id','d.nama_jenis','d.satuan','d.harga_beli_snapshot','d.harga_jual_snapshot')
+            ->selectRaw('sum(d.jumlah) as jumlah, sum(d.subtotal) as beli, sum(round(d.jumlah*d.harga_jual_snapshot)) as jual')
+            ->groupBy('d.jenis_sampah_id','d.nama_jenis','d.satuan','d.harga_beli_snapshot','d.harga_jual_snapshot')
+            ->orderBy('d.nama_jenis')->orderBy('d.harga_beli_snapshot')->get();
         $sale = $missing ? null : (int) $groups->sum('jual');
         $top = (clone $query)->join('users as u', 'u.id', '=', 's.nasabah_id')
             ->select('u.nama')->selectRaw('sum(s.total_kg) as kg, sum(s.total_liter) as liter')
             ->groupBy('u.id', 'u.nama')->orderByDesc('kg')->limit(5)->get();
 
-        return compact('dates', 'summary', 'groups', 'missing', 'sale', 'top', 'query');
+        $jadwalInfo = app(\App\Services\JadwalSetorService::class)->getStatus();
+
+        return compact('dates', 'summary', 'groups', 'missing', 'sale', 'top', 'query','breakdown', 'jadwalInfo');
     }
 
     public function show(Request $request)
     {
         return view('petugas.report', $this->report($request));
+    }
+
+    public function saveJadwal(Request $request, \App\Services\JadwalSetorService $service)
+    {
+        $data = $request->validate([
+            'id' => 'nullable|integer',
+            'tanggal' => 'required|date_format:Y-m-d',
+            'jam_buka' => 'required|date_format:H:i',
+            'jam_tutup' => 'required|date_format:H:i|after:jam_buka',
+            'catatan' => 'nullable|string|max:1000',
+        ]);
+
+        $service->save($request->user()->id, $data, $data['id'] ?? null);
+
+        return redirect('/petugas/dashboard')->with('success', 'Jadwal pelayanan berhasil disimpan.');
+    }
+
+    public function toggleEmergency(Request $request, \App\Services\JadwalSetorService $service, int $id)
+    {
+        $status = $service->toggleEmergency($id);
+        $message = $status ? 'Pelayanan ditutup darurat.' : 'Tutup darurat dibatalkan. Pelayanan dibuka kembali.';
+
+        return redirect('/petugas/dashboard')->with('success', $message);
     }
 
     public function export(Request $request)
@@ -53,6 +83,15 @@ class PetugasReportController extends Controller
                     foreach ($data['groups'] as $g) {
                         $writer->addRow(Row::fromValues([$g->nama_jenis, $g->satuan, (float) $g->jumlah, (int) $g->beli,
                             $g->missing ? 'Belum tersedia' : (int) $g->jual, $g->missing ? 'Belum tersedia' : (int) $g->jual - (int) $g->beli]));
+                    }
+                    $writer->addRow(Row::fromValues(['TOTAL NILAI', '', null, (int)$data['summary']->beli,
+                        $data['sale'] ?? 'Belum tersedia', $data['sale'] === null ? 'Belum tersedia' : $data['sale']-(int)$data['summary']->beli]));
+                    $writer->addNewSheetAndMakeItCurrent()->setName('Rincian harga snapshot');
+                    $writer->addRow(Row::fromValues(['Jenis','Satuan','Jumlah','Harga beli/satuan','Harga jual/satuan','Nilai beli','Estimasi jual']));
+                    foreach ($data['breakdown'] as $d) {
+                        $writer->addRow(Row::fromValues([$d->nama_jenis,$d->satuan,(float)$d->jumlah,(int)$d->harga_beli_snapshot,
+                            $d->harga_jual_snapshot === null ? 'Belum tersedia' : (int)$d->harga_jual_snapshot,(int)$d->beli,
+                            $d->jual === null ? 'Belum tersedia' : (int)$d->jual]));
                     }
                 } else {
                     $writer->addRow(Row::fromValues(['Kode', 'Nasabah', 'No HP', 'Alamat', 'Waktu verifikasi WIB', 'Kg', 'Liter', 'Nilai (Rp)', 'Status']));

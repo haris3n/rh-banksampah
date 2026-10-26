@@ -20,8 +20,10 @@
             prepareRow(row);
             const s=row.querySelector('select'), input=row.querySelector('input');
             const option=s.selectedOptions[0], unit=option.dataset.unit;
-            const text=input.value, parts=text.split('.');
-            const amount=/^\d+(\.\d{1,2})?$/.test(text)?Number(parts[0])*100+Number((parts[1]||'').padEnd(2,'0')):0;
+            const text=(input.value||'').trim().replace(',','.');
+            const parts=text.split('.');
+            const valid=/^\d+(\.\d+)?$/.test(text) && Number(text) > 0;
+            const amount=valid ? Number(parts[0])*100 + Number((parts[1]||'').slice(0,2).padEnd(2,'0')) : 0;
             const value=Math.floor((amount*Number(option.dataset.price||0)+50)/100);
             row.querySelector('[data-subtotal]').textContent=money(value);
             row.querySelector('[data-price-display]').textContent=unit?money(Number(option.dataset.price))+' / '+unit:'—';
@@ -33,7 +35,17 @@
         document.getElementById('live-total').textContent=money(total);
         document.getElementById('live-quantity').textContent=number(units.kg)+' kg + '+number(units.liter)+' liter';
     }
-    box.addEventListener('input',calculate);
+    box.addEventListener('input',event=>{
+        const input=event.target;
+        if(input.matches('input[name$="[jumlah]"]')){
+            let val=input.value;
+            const dotIndex=val.indexOf('.');
+            if(dotIndex!==-1 && val.length > dotIndex + 3){
+                input.value=val.slice(0, dotIndex + 3);
+            }
+        }
+        calculate();
+    });
     box.addEventListener('change',event=>{if(event.target.tagName==='SELECT'){const s=event.target,unit=s.selectedOptions[0].dataset.unit;if(s.dataset.lastUnit&&s.dataset.lastUnit!==unit)s.closest('.item-row').querySelector('input').value='';s.dataset.lastUnit=unit||'';}calculate();});
     box.querySelectorAll('select').forEach(s=>s.dataset.lastUnit=s.selectedOptions[0].dataset.unit||'');
     box.addEventListener('click',event=>{if(event.target.closest('[data-remove]')&&box.children.length>1){event.target.closest('.item-row').remove();calculate();}});
@@ -53,6 +65,16 @@
         }catch{if(seq===sequence)status.textContent='Pencarian gagal. Periksa koneksi atau masuk kembali. Isian setoran tetap tersimpan di halaman ini.';}
     }
     document.getElementById('search-customers').onclick=search;
+    let searchTimer;
+    document.getElementById('customer-query').addEventListener('input',()=>{
+        clearTimeout(searchTimer);
+        sequence++;
+        if(!document.getElementById('customer-query').value.trim()){
+            document.getElementById('search-status').textContent='Ketik nama, nomor HP, atau kode QR nasabah.';
+            return;
+        }
+        searchTimer=setTimeout(search,350);
+    });
     document.getElementById('customer-query').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search();}});
     let scanner=null,reading=false;
     const start=document.getElementById('start-camera'),stop=document.getElementById('stop-camera'),status=document.getElementById('camera-status');

@@ -21,10 +21,11 @@ class SetoranDatabaseTest extends TestCase
                 $db->table('model_has_roles')->insert(['role_id'=>$db->table('roles')->where('name',$role)->value('id'),'model_type'=>User::class,'model_id'=>$id]);
                 $users[]=User::find($id);
             }
-            $this->post('/petugas/login',['email'=>$users[0]->email,'password'=>'test-password'])->assertRedirect('/petugas');
+            $this->post('/petugas/login',['email'=>$users[0]->email,'password'=>'test-password'])->assertRedirect('/petugas/dashboard');
+            $this->get('/petugas/pengepul')->assertOk()->assertSee('Jenis diterima')->assertSee('collector-summary')->assertDontSee('Ringkasan setoran selesai')->assertDontSee('Top 5 nasabah');
             $this->get('/petugas/setoran-baru')->assertOk();
             $this->get('/petugas/nasabah?q='.urlencode($users[2]->nama))->assertOk()->assertSee($users[2]->nama);
-            $this->get('/petugas/nasabah/'.$users[2]->id)->assertOk()->assertSee('Saldo tersedia');
+            $this->get('/petugas/nasabah/'.$users[2]->id)->assertOk()->assertSee('Saldo Utama');
             $this->getJson('/petugas/nasabah-search?q='.urlencode($users[2]->nama))->assertOk()->assertJsonFragment(['id'=>$users[2]->id]);
             $payload=['nasabah_id'=>$users[2]->id,'items'=>[
                 ['jenis_sampah_id'=>$db->table('jenis_sampah')->where('nama','Emberan')->value('id'),'jumlah'=>'1.25'],
@@ -33,8 +34,10 @@ class SetoranDatabaseTest extends TestCase
             $this->post('/petugas/setoran',$payload)->assertRedirect();
             $record=$db->table('setoran')->where('petugas_id',$users[0]->id)->first();
             $this->assertEquals(12000,$record->total_nilai);
-            $this->assertEquals('1.25',$record->total_kg);
-            $this->assertEquals('2.50',$record->total_liter);
+            $this->get('/petugas')->assertOk()->assertSee('Total transaksi')->assertSee('Nilai setoran selesai')->assertSee('status-tabs')->assertSee('Emberan')->assertSee('Minyak Jelantah Bersih');
+            $this->get('/petugas?status=DIBATALKAN')->assertOk()->assertDontSee($record->kode)->assertSee('Belum ada transaksi yang sesuai');
+            $this->assertEquals('3.75',$record->total_kg);
+            $this->assertEquals('0.00',$record->total_liter);
             $this->assertFalse($db->table('mutasi_saldo')->where('referensi_id',$record->id)->exists());
             $this->actingAs($users[1])->post('/petugas/setoran/'.$record->id.'/finish',['action'=>'verify'])->assertForbidden();
             $db->table('jenis_sampah')->where('nama','Emberan')->update(['harga_beli'=>9999]);
@@ -47,20 +50,19 @@ class SetoranDatabaseTest extends TestCase
             $this->post('/petugas/setoran/'.$record->id.'/finish',['action'=>'verify'])->assertRedirect();
             $this->post('/petugas/setoran/'.$record->id.'/finish',['action'=>'verify'])->assertStatus(409);
             $this->put('/petugas/setoran/'.$record->id,$payload)->assertStatus(409);
-            $this->get('/petugas/setoran/'.$record->id)->assertOk()->assertSee('Struk Setoran')->assertSee('12.000');
+            $this->get('/petugas/setoran/'.$record->id)->assertOk()->assertSee('BANK SAMPAH RUMAH HIJAU')->assertSee('12.000');
             $this->assertEquals(12000,$db->table('saldo_nasabah')->where('user_id',$users[2]->id)->value('tersedia'));
             $this->assertEquals(1,$db->table('mutasi_saldo')->where('referensi_id',$record->id)->count());
-            $this->get('/petugas/dashboard')->assertOk()->assertSee('Belum tersedia')->assertSee('12.000');
+            $this->get('/petugas/dashboard')->assertOk()->assertSee($users[2]->nama);
             $this->get('/petugas/dashboard')->assertOk()->assertSee('Top 5 nasabah')->assertSee('Periode ringkasan: Hari ini')->assertSee('Pilih rentang tanggal')->assertSee('petugas-operational.css')->assertSee('aria-current="page"', false)->assertDontSee('Export XLSX Transaksi Selesai');
             $this->get('/petugas/pengepul')->assertOk()->assertDontSee('Top 5 nasabah')->assertSee('Export XLSX Pengepul')->assertSee('petugas-operational.css')->assertSee('Cari Nasabah')->assertSee('aria-current="page"', false);
             $this->get('/petugas/pengepul?from=2000-01-01&to=2000-01-01')->assertOk()->assertSee('Belum ada setoran')->assertDontSee('Top 5 nasabah');
             $db->table('setoran')->where('id',$record->id)->update(['diverifikasi_at'=>'2026-10-06 17:00:00+00']);
             $this->get('/petugas/dashboard?from=2026-10-06&to=2026-10-06')->assertOk()->assertDontSee('Rp12.000');
             $this->get('/petugas/dashboard?from=2026-10-07&to=2026-10-07')->assertOk()->assertSee('Rp12.000');
-            $db->table('setoran')->where('id',$record->id)->update(['diverifikasi_at'=>now()]);
             $this->get('/petugas/pengepul?from=2026-10-10&to=2026-10-01')->assertSessionHasErrors('to');
             foreach (['transaksi', 'pengepul'] as $kind) {
-                $export = $this->get('/petugas/export?kind='.$kind)->assertOk();
+                $export = $this->get('/petugas/export?kind='.$kind.'&from=2026-10-07&to=2026-10-07')->assertOk();
                 $bytes = $export->streamedContent();
                 $this->assertStringStartsWith('PK', $bytes);
                 $file = tempnam(sys_get_temp_dir(), 'rh-xlsx-');

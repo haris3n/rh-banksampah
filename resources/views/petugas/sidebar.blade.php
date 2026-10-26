@@ -1,3 +1,6 @@
+@php
+    $sidebarJadwal = app(\App\Services\JadwalSetorService::class)->getStatus();
+@endphp
 <aside class="sidebar">
 <a class="brand" href="/petugas/dashboard"><img src="{{ route('petugas.logo') }}" width="40" height="40" alt="Logo Rumah Hijau"><span><strong>Rumah Hijau</strong><small>Portal Petugas</small></span></a>
 <nav aria-label="Navigasi petugas">
@@ -11,5 +14,13 @@
 <a href="{{ $url }}" @class(['nav-link','active'=>$active]) @if($active) aria-current="page" @endif>@svg($icon) {{ $label }}</a>
 @endforeach
 </nav>
-@auth<div class="sidebar-note"><small>Petugas aktif</small><strong>{{ auth()->user()->nama }}</strong><p>Jadwal setor belum diumumkan</p><form action="/petugas/logout" method="post">@csrf<button class="sidebar-button">Keluar</button></form></div>@endauth
+@auth<div class="sidebar-note">
+    <small>Petugas aktif</small>
+    <strong>{{ auth()->user()->nama }}</strong>
+    <p class="sidebar-schedule-status">
+        <span class="status-indicator {{ $sidebarJadwal['badge_class'] }}"></span>
+        {{ $sidebarJadwal['status_label'] }}
+    </p>
+    <form action="/petugas/logout" method="post">@csrf<button class="sidebar-button">Keluar</button></form>
+</div>@endauth
 </aside>

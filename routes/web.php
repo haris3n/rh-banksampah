@@ -27,13 +27,15 @@ Route::get('/', function () {
     return redirect('/petugas');
 });
 
-Route::view('/petugas/login', 'petugas.operational', ['screen' => 'login'])->name('login');
+Route::view('/petugas/login', 'petugas.login')->name('login');
 Route::post('/petugas/login', [PetugasController::class, 'login'])->middleware('throttle:5,1');
 Route::middleware(ActivePetugas::class)->prefix('petugas')->group(function () {
     Route::get('/nasabah-search', [PetugasController::class, 'search']);
     Route::get('/nasabah', [PetugasController::class, 'customers']);
     Route::get('/nasabah/{id}', [PetugasController::class, 'customers'])->whereNumber('id');
     Route::get('/dashboard', [\App\Http\Controllers\PetugasReportController::class, 'show']);
+    Route::post('/dashboard/jadwal', [\App\Http\Controllers\PetugasReportController::class, 'saveJadwal']);
+    Route::post('/dashboard/jadwal/{id}/darurat', [\App\Http\Controllers\PetugasReportController::class, 'toggleEmergency'])->whereNumber('id');
     Route::get('/pengepul', [\App\Http\Controllers\PetugasReportController::class, 'show']);
     Route::get('/export', [\App\Http\Controllers\PetugasReportController::class, 'export']);
     Route::get('/', [PetugasController::class, 'index']);
