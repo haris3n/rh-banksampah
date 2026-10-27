@@ -25,14 +25,6 @@ class JadwalSetorService
             ->orderBy('jam_buka')
             ->first();
 
-        // Jika tidak ada jadwal mendatang, cari jadwal terakhir
-        if (! $jadwal) {
-            $jadwal = $db->table('jadwal_setor')
-                ->where('aktif', true)
-                ->orderByDesc('tanggal')
-                ->first();
-        }
-
         if (! $jadwal) {
             return [
                 'jadwal' => null,
@@ -47,13 +39,13 @@ class JadwalSetorService
 
         $isEmergency = (bool) $jadwal->ditutup_darurat;
         $isToday = $jadwal->tanggal === $today;
-        $inTimeWindow = $isToday && $currentTime >= $jadwal->jam_buka && $currentTime <= $jadwal->jam_tutup;
+        $inTimeWindow = $isToday && $currentTime >= $jadwal->jam_buka && $currentTime < $jadwal->jam_tutup;
 
         if ($isEmergency) {
             $status = 'DITUTUP_DARURAT';
             $badgeClass = 'cancelled';
             $statusLabel = 'Ditutup Darurat';
-            $statusDesc = 'Pelayanan hari ini sedang ditutup darurat oleh petugas.';
+            $statusDesc = 'Pelayanan tanggal ' . $jadwal->tanggal . ' ditutup darurat oleh petugas.';
             $isOpen = false;
         } elseif ($inTimeWindow) {
             $status = 'SEDANG_BUKA';
@@ -67,7 +59,7 @@ class JadwalSetorService
             $statusLabel = 'Buka Hari Ini';
             $statusDesc = 'Pelayanan dibuka hari ini mulai pukul ' . substr($jadwal->jam_buka, 0, 5) . ' WIB.';
             $isOpen = false;
-        } elseif ($isToday && $currentTime > $jadwal->jam_tutup) {
+        } elseif ($isToday && $currentTime >= $jadwal->jam_tutup) {
             $status = 'SUDAH_TUTUP';
             $badgeClass = 'cancelled';
             $statusLabel = 'Sudah Tutup';
@@ -110,9 +102,18 @@ class JadwalSetorService
         ];
 
         if ($id) {
-            $db->table('jadwal_setor')->where('id', $id)->update($record);
-            return $id;
+            $existing = $db->table('jadwal_setor')->find($id);
+            abort_unless($existing, 404);
+            // A different service date is a new event, never overwrite history.
+            if ($existing->tanggal === $data['tanggal']) {
+                abort_if(CarbonImmutable::parse($existing->tanggal.' '.$existing->jam_tutup, 'Asia/Jakarta')->isPast(), 409, 'Jadwal yang telah selesai tidak dapat diubah.');
+                unset($record['dibuat_oleh']);
+                $db->table('jadwal_setor')->where('id', $id)->update($record);
+                return $id;
+            }
         }
+
+        abort_if($data['tanggal'] < CarbonImmutable::now('Asia/Jakarta')->format('Y-m-d'), 422, 'Tanggal pelayanan tidak boleh di masa lalu.');
 
         $record['aktif'] = true;
         $record['ditutup_darurat'] = false;

@@ -142,13 +142,16 @@
             @forelse($groups as $g)<tr><td>{{ $g->nama_jenis }}</td><td>{{ number_format($g->jumlah,2,',','.') }} {{ $g->satuan }}</td><td>Rp{{ number_format($g->beli,0,',','.') }}</td><td>{{ $g->missing ? 'Belum tersedia' : 'Rp'.number_format($g->jual,0,',','.') }}</td><td>{{ $g->missing ? 'Belum tersedia' : 'Rp'.number_format($g->jual-$g->beli,0,',','.') }}</td></tr>
             @empty<tr><td colspan="5"><div class="collector-empty">@svg('heroicon-o-inbox')<strong>Belum ada sampah untuk direkap</strong><p>Setoran yang selesai diverifikasi akan muncul di sini. Coba pilih periode bulan ini.</p><a data-report-link class="button" href="{{ url()->current().'?'.http_build_query(['from'=>now('Asia/Jakarta')->startOfMonth()->format('Y-m-d'),'to'=>$today]) }}">Lihat bulan ini</a><small>Belum ada setoran selesai pada periode ini.</small></div></td></tr>@endforelse
             </tbody></table></div>
-            <div class="collector-purchase"><span>Total nilai pembelian dari nasabah</span><strong>Rp{{ number_format($summary->beli,0,',','.') }}</strong></div>
+            <section class="value-summary" aria-labelledby="value-summary-title">
+                <h3 id="value-summary-title">Ringkasan nilai pada periode ini</h3>
+                <dl class="value-summary-grid">
+                    <div><dt>Total nilai pembelian</dt><dd>Rp{{ number_format($summary->beli,0,',','.') }}</dd></div>
+                    <div><dt>Estimasi nilai jual</dt><dd>{{ $estimate }}</dd></div>
+                    <div @class(['negative-value' => !$empty && $sale !== null && $sale < $summary->beli])><dt>Estimasi selisih</dt><dd>{{ $empty ? 'Belum ada setoran' : ($sale === null ? 'Belum tersedia' : 'Rp'.number_format($sale-$summary->beli,0,',','.')) }}</dd>@if(!$empty && $sale !== null && $sale < $summary->beli)<small>Estimasi jual di bawah nilai pembelian</small>@endif</div>
+                </dl>
+                <p>{{ $missing ? 'Harga jual belum lengkap. Total estimasi jual dan selisih belum dapat dihitung.' : 'Dihitung dari harga saat setoran dicatat. Nilai penjualan sebenarnya dapat berbeda.' }}</p>
+            </section>
             <details class="collector-pricing"><summary>Rincian harga saat setoran dicatat</summary><p>Harga berikut berasal dari transaksi, bukan harga master terbaru. Histori liter tidak dikonversi ke kg.</p><div class="table-scroll"><table><thead><tr><th>Jenis</th><th>Jumlah</th><th>Harga beli/satuan</th><th>Harga jual/satuan</th></tr></thead><tbody>@forelse($breakdown as $d)<tr><td>{{ $d->nama_jenis }}</td><td>{{ number_format($d->jumlah,2,',','.') }} {{ $d->satuan }}</td><td>Rp{{ number_format($d->harga_beli_snapshot,0,',','.') }}/{{ $d->satuan }}</td><td>{{ $d->harga_jual_snapshot === null ? 'Belum tersedia' : 'Rp'.number_format($d->harga_jual_snapshot,0,',','.').'/'.$d->satuan }}</td></tr>@empty<tr><td colspan="4">Belum ada rincian pada periode ini.</td></tr>@endforelse</tbody></table></div></details>
-            <details class="collector-pricing">
-                <summary>Harga jual dan estimasi selisih</summary>
-                <p>{{ $empty ? 'Belum ada setoran selesai pada periode ini.' : ($missing ? 'Harga jual belum lengkap. Menunggu data resmi Rumah Hijau; estimasi tidak dihitung sebagai nol.' : 'Estimasi memakai harga jual saat setoran dicatat, bukan penjualan aktual.') }}</p>
-                @if(!$empty && !$missing)<p>Total estimasi jual: <strong>{{ $estimate }}</strong><br>Estimasi selisih: <strong>Rp{{ number_format($sale-$summary->beli,0,',','.') }}</strong></p>@endif
-            </details>
         </section>
     @endif
     <footer>Bank Sampah Rumah Hijau · Data PostgreSQL</footer>

@@ -27,6 +27,8 @@ class SetoranDatabaseTest extends TestCase
             $this->get('/petugas/nasabah?q='.urlencode($users[2]->nama))->assertOk()->assertSee($users[2]->nama);
             $this->get('/petugas/nasabah/'.$users[2]->id)->assertOk()->assertSee('Saldo Utama');
             $this->getJson('/petugas/nasabah-search?q='.urlencode($users[2]->nama))->assertOk()->assertJsonFragment(['id'=>$users[2]->id]);
+            $this->getJson('/petugas/nasabah-search?q='.$users[2]->id)->assertOk()->assertJsonFragment(['id'=>$users[2]->id]);
+            $this->get('/petugas/nasabah?q='.$users[2]->id)->assertOk()->assertSee($users[2]->nama);
             $payload=['nasabah_id'=>$users[2]->id,'items'=>[
                 ['jenis_sampah_id'=>$db->table('jenis_sampah')->where('nama','Emberan')->value('id'),'jumlah'=>'1.25'],
                 ['jenis_sampah_id'=>$db->table('jenis_sampah')->where('nama','Minyak Jelantah Bersih')->value('id'),'jumlah'=>'2.50'],
@@ -34,12 +36,14 @@ class SetoranDatabaseTest extends TestCase
             $this->post('/petugas/setoran',$payload)->assertRedirect();
             $record=$db->table('setoran')->where('petugas_id',$users[0]->id)->first();
             $this->assertEquals(12000,$record->total_nilai);
+            $this->get('/petugas/setoran/'.$record->id)->assertOk()->assertSee('Konfirmasi verifikasi setoran')->assertSee('verify-setoran-dialog')->assertSee('Periksa Kembali')->assertDontSee("onsubmit=\"return confirm", false);
             $this->get('/petugas')->assertOk()->assertSee('Total transaksi')->assertSee('Nilai setoran selesai')->assertSee('status-tabs')->assertSee('Emberan')->assertSee('Minyak Jelantah Bersih');
             $this->get('/petugas?status=DIBATALKAN')->assertOk()->assertDontSee($record->kode)->assertSee('Belum ada transaksi yang sesuai');
             $this->assertEquals('3.75',$record->total_kg);
             $this->assertEquals('0.00',$record->total_liter);
             $this->assertFalse($db->table('mutasi_saldo')->where('referensi_id',$record->id)->exists());
             $this->actingAs($users[1])->post('/petugas/setoran/'.$record->id.'/finish',['action'=>'verify'])->assertForbidden();
+            $this->get('/petugas/setoran/'.$record->id)->assertOk()->assertDontSee('id="verify-setoran-dialog"', false);
             $db->table('jenis_sampah')->where('nama','Emberan')->update(['harga_beli'=>9999]);
             $db->table('jenis_sampah')->where('nama','Emberan')->update(['aktif'=>false]);
             $this->actingAs($users[0])->get('/petugas/setoran/'.$record->id.'/edit')->assertOk()->assertSee('data-price="1600"',false)->assertSee('snapshot nonaktif');

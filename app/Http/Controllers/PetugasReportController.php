@@ -63,7 +63,7 @@ class PetugasReportController extends Controller
     public function toggleEmergency(Request $request, \App\Services\JadwalSetorService $service, int $id)
     {
         $status = $service->toggleEmergency($id);
-        $message = $status ? 'Pelayanan ditutup darurat.' : 'Tutup darurat dibatalkan. Pelayanan dibuka kembali.';
+        $message = $status ? 'Jadwal ditutup darurat.' : 'Tutup darurat dibatalkan. Status kembali mengikuti tanggal dan jam pelayanan.';
 
         return redirect('/petugas/dashboard')->with('success', $message);
     }

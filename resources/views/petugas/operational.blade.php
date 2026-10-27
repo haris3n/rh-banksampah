@@ -236,13 +236,27 @@
             @if($record->status === 'MENUNGGU_VERIFIKASI' && $record->petugas_id === auth()->id())
                 <div class="actions" style="margin-top:24px;justify-content:space-between">
                     <a class="button" href="/petugas/setoran/{{ $record->id }}/edit">Edit Setoran</a>
-                    <form method="post" action="/petugas/setoran/{{ $record->id }}/finish" onsubmit="return confirm('Verifikasi setoran ini? Saldo nasabah akan bertambah dan transaksi akan terkunci permanen.')">
+                    <form id="verify-setoran-form" method="post" action="/petugas/setoran/{{ $record->id }}/finish">
                         @csrf
                         <input type="hidden" name="action" value="verify">
                         <button class="button primary" style="font-size:15px;padding:12px 24px">
-                            @svg('heroicon-o-check-circle', 'action-icon') Verifikasi & Cetak Struk
+                            @svg('heroicon-o-check-circle', 'action-icon') Verifikasi Setoran
                         </button>
                     </form>
+                    <dialog id="verify-setoran-dialog" class="verify-modal" aria-labelledby="verify-heading" aria-describedby="verify-explanation">
+                        <h2 id="verify-heading">Konfirmasi verifikasi setoran</h2>
+                        <p>Pastikan identitas nasabah dan hasil penimbangan sudah benar.</p>
+                        <dl class="verify-facts">
+                            <div><dt>Nasabah</dt><dd>{{ $customer->nama }}</dd></div>
+                            <div><dt>Kode transaksi</dt><dd>{{ $record->kode }}</dd></div>
+                            <div><dt>Total berat</dt><dd>{{ number_format($record->total_kg,2,',','.') }} kg @if($record->total_liter > 0) + {{ number_format($record->total_liter,2,',','.') }} liter @endif</dd></div>
+                            <div class="verify-amount"><dt>Nilai setoran</dt><dd>Rp{{ number_format($record->total_nilai,0,',','.') }}</dd></div>
+                        </dl>
+                        <p id="verify-explanation">Setelah diverifikasi, saldo nasabah bertambah Rp{{ number_format($record->total_nilai,0,',','.') }}. Setoran tidak dapat diedit atau dibatalkan.</p>
+                        <div class="verify-buttons"><button type="button" class="button" id="verify-back" autofocus>Periksa Kembali</button><button type="button" class="button primary" id="verify-confirm">Ya, Verifikasi Setoran</button></div>
+                        <p id="verify-progress" role="status" aria-live="polite"></p>
+                    </dialog>
+                    <script src="{{ asset('js/petugas-verify.js') }}" defer></script>
                 </div>
                 <details style="margin-top:24px;border-top:1px solid #d9e5dc;padding-top:16px">
                     <summary style="color:#87392c;font-size:13px;cursor:pointer">Batalkan setoran ini</summary>
@@ -313,7 +327,7 @@
                 <strong class="rmeta-val">{{ $record->kode }}</strong>
             </div>
             <div style="text-align:right">
-                <span class="rmeta-label">Waktu</span>
+                <span class="rmeta-label">Tanggal & Jam</span>
                 <strong class="rmeta-val">{{ \Carbon\Carbon::parse($record->diverifikasi_at ?? $record->created_at)->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</strong>
             </div>
             <div>
@@ -324,6 +338,14 @@
                 <span class="rmeta-label">Petugas</span>
                 <strong class="rmeta-val">{{ $recorder->nama }}</strong>
             </div>
+            <div>
+                <span class="rmeta-label">No. HP</span>
+                <strong class="rmeta-val">{{ $customer->no_hp ?: 'Belum tersedia' }}</strong>
+            </div>
+            <div style="text-align:right">
+                <span class="rmeta-label">Alamat</span>
+                <strong class="rmeta-val">{{ $customer->alamat ?: 'Belum tersedia' }}</strong>
+            </div>
         </div>
 
         <div class="receipt-divider-dashed"></div>
@@ -332,8 +354,8 @@
             <thead>
                 <tr>
                     <th style="text-align:left">Tipe Sampah</th>
-                    <th style="text-align:right">Berat</th>
-                    <th style="text-align:right">Harga/kg</th>
+                    <th style="text-align:right">Berat/Vol</th>
+                    <th style="text-align:right">Harga/satuan</th>
                     <th style="text-align:right">Subtotal</th>
                 </tr>
             </thead>
@@ -342,7 +364,7 @@
                     <tr>
                         <td style="text-align:left">{{ $d->nama_jenis }}</td>
                         <td style="text-align:right">{{ $d->jumlah }} {{ $d->satuan }}</td>
-                        <td style="text-align:right">{{ number_format($d->harga_beli_snapshot, 0, ',', '.') }}</td>
+                        <td style="text-align:right">{{ number_format($d->harga_beli_snapshot, 0, ',', '.') }}/{{ $d->satuan }}</td>
                         <td style="text-align:right">{{ number_format($d->subtotal, 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
@@ -391,7 +413,10 @@
         if (dialog && !dialog.open) {
             dialog.showModal();
         }
-        window.print();
+        // Beri waktu browser merender dialog sebelum membuka print
+        setTimeout(function() {
+            window.print();
+        }, 300);
     }
 
     // Otomatis buka pop-up struk jika baru saja selesai diverifikasi

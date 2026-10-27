@@ -58,7 +58,7 @@ class PetugasController extends Controller
             ->join('roles as r', 'r.id', '=', 'm.role_id')->where('m.model_type', User::class)
             ->where('r.name', 'nasabah')->where('r.guard_name', 'web')->where('u.aktif', true)
             ->where(function ($q) use ($search, $selected) {
-                $q->where('u.nama', 'ilike', '%'.$search.'%')->orWhere('u.no_hp', 'like', '%'.$search.'%')->orWhereRaw('u.kode_qr::text = ?', [$search]);
+                $q->where('u.nama', 'ilike', '%'.$search.'%')->orWhere('u.no_hp', 'like', '%'.$search.'%')->orWhereRaw('u.kode_qr::text = ?', [$search])->orWhereRaw('u.id::text = ?', [$search]);
                 if ($selected) $q->orWhere('u.id', $selected);
             })->select('u.id', 'u.nama', 'u.no_hp', 'u.alamat')->orderBy('u.nama')->limit(50)->get();
         $details = $id ? $db->table('setoran_detail')->where('setoran_id', $id)->get() : collect();
@@ -83,7 +83,7 @@ class PetugasController extends Controller
         });
         $customer=$id?(clone $query)->findOrFail($id):null;
         $search=$data['q']??'';
-        $customers=$query->where(fn($q)=>$q->where('nama','ilike','%'.$search.'%')->orWhere('no_hp','like','%'.$search.'%')->orWhereRaw('kode_qr::text = ?',[$search]))->orderBy('nama')->paginate(20)->withQueryString();
+        $customers=$query->where(fn($q)=>$q->where('nama','ilike','%'.$search.'%')->orWhere('no_hp','like','%'.$search.'%')->orWhereRaw('kode_qr::text = ?',[$search])->orWhereRaw('users.id::text = ?',[$search]))->orderBy('nama')->orderBy('id')->paginate(20)->withQueryString();
         $db=DB::connection('proyek3');
 
         $totalKg = 0;
@@ -114,7 +114,7 @@ class PetugasController extends Controller
         $q=$request->validate(['q'=>'required|string|max:100'])['q'];
         return DB::connection('proyek3')->table('users as u')->where('u.aktif',true)
             ->whereExists(fn($b)=>$b->selectRaw('1')->from('model_has_roles as m')->join('roles as r','r.id','=','m.role_id')->whereColumn('m.model_id','u.id')->where('m.model_type',User::class)->where('r.name','nasabah')->where('r.guard_name','web'))
-            ->where(fn($b)=>$b->where('u.nama','ilike','%'.$q.'%')->orWhere('u.no_hp','like','%'.$q.'%')->orWhereRaw('u.kode_qr::text = ?',[$q]))
+            ->where(fn($b)=>$b->where('u.nama','ilike','%'.$q.'%')->orWhere('u.no_hp','like','%'.$q.'%')->orWhereRaw('u.kode_qr::text = ?',[$q])->orWhereRaw('u.id::text = ?',[$q]))
             ->select('u.id','u.nama','u.no_hp','u.alamat')->orderBy('u.nama')->limit(50)->get();
     }
 
