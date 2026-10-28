@@ -16,6 +16,7 @@ class JadwalSetorFeatureTest extends TestCase
         $db->beginTransaction();
 
         try {
+            CarbonImmutable::setTestNow(CarbonImmutable::parse('2092-01-10 09:00:00','Asia/Jakarta'));
             // Bersihkan sementara jadwal di dalam transaksi tes
             $db->table('jadwal_setor')->delete();
 
@@ -78,7 +79,7 @@ class JadwalSetorFeatureTest extends TestCase
             $this->actingAs($petugas)->get('/petugas/dashboard')
                 ->assertOk()
                 ->assertSee('Ditutup Darurat')
-                ->assertSee('Buka Kembali');
+                ->assertSee('Kembali ke Jadwal Otomatis');
 
             // Test 6: Buka kembali
             $this->actingAs($petugas)->post('/petugas/dashboard/jadwal/' . $jadwalId . '/darurat')
@@ -86,6 +87,7 @@ class JadwalSetorFeatureTest extends TestCase
             $this->assertFalse((bool) $db->table('jadwal_setor')->where('id', $jadwalId)->value('ditutup_darurat'));
 
         } finally {
+            CarbonImmutable::setTestNow();
             $db->rollBack();
         }
     }

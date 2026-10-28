@@ -6,8 +6,8 @@
 <nav aria-label="Navigasi petugas">
 @foreach([
 ['/petugas/dashboard','Dashboard','heroicon-o-squares-2x2',request()->is('petugas/dashboard')],
-['/petugas/setoran-baru','Setoran Baru','heroicon-o-document-plus',request()->is('petugas/setoran-baru','petugas/setoran/*/edit')],
-['/petugas','Transaksi Hari Ini','heroicon-o-clipboard-document-list',request()->is('petugas')],
+['/petugas/setoran-baru','Input Setoran Baru','heroicon-o-document-plus',request()->is('petugas/setoran-baru','petugas/setoran/*/edit')],
+['/petugas','Riwayat Transaksi','heroicon-o-clipboard-document-list',request()->is('petugas')],
 ['/petugas/nasabah','Cari Nasabah','heroicon-o-user-group',request()->is('petugas/nasabah','petugas/nasabah/*')],
 ['/petugas/pengepul','Data untuk Pengepul','heroicon-o-scale',request()->is('petugas/pengepul')]
 ] as [$url,$label,$icon,$active])

@@ -21,6 +21,7 @@ class JadwalSetorService
         $jadwal = $db->table('jadwal_setor')
             ->where('aktif', true)
             ->where('tanggal', '>=', $today)
+            ->orderByRaw('CASE WHEN tanggal = ? AND jam_tutup <= ? THEN 1 ELSE 0 END', [$today, $currentTime])
             ->orderBy('tanggal')
             ->orderBy('jam_buka')
             ->first();
@@ -91,7 +92,13 @@ class JadwalSetorService
     public function save(int $userId, array $data, ?int $id = null): int
     {
         $db = DB::connection('proyek3');
-
+        return $db->transaction(function () use ($db, $userId, $data, $id) {
+        // Serialize schedule writes so concurrent submissions cannot create overlaps.
+        $db->statement('LOCK TABLE jadwal_setor IN SHARE ROW EXCLUSIVE MODE');
+        $now = CarbonImmutable::now('Asia/Jakarta');
+        $fail = fn ($message) => throw \Illuminate\Validation\ValidationException::withMessages(['tanggal' => $message]);
+        if ($data['jam_tutup'] <= $data['jam_buka']) $fail('Jam tutup harus setelah jam buka.');
+        if (CarbonImmutable::parse($data['tanggal'].' '.$data['jam_tutup'], 'Asia/Jakarta')->lessThanOrEqualTo($now)) $fail('Jadwal baru harus berakhir setelah waktu sekarang.');
         $record = [
             'tanggal' => $data['tanggal'],
             'jam_buka' => $data['jam_buka'],
@@ -104,22 +111,25 @@ class JadwalSetorService
         if ($id) {
             $existing = $db->table('jadwal_setor')->find($id);
             abort_unless($existing, 404);
-            // A different service date is a new event, never overwrite history.
-            if ($existing->tanggal === $data['tanggal']) {
-                abort_if(CarbonImmutable::parse($existing->tanggal.' '.$existing->jam_tutup, 'Asia/Jakarta')->isPast(), 409, 'Jadwal yang telah selesai tidak dapat diubah.');
-                unset($record['dibuat_oleh']);
-                $db->table('jadwal_setor')->where('id', $id)->update($record);
-                return $id;
-            }
+            if (CarbonImmutable::parse($existing->tanggal.' '.$existing->jam_buka, 'Asia/Jakarta')->lessThanOrEqualTo($now)) $fail('Jadwal yang sudah dimulai tidak dapat diubah. Tambahkan jadwal berikutnya.');
         }
-
-        abort_if($data['tanggal'] < CarbonImmutable::now('Asia/Jakarta')->format('Y-m-d'), 422, 'Tanggal pelayanan tidak boleh di masa lalu.');
+        if ($data['tanggal'] < $now->format('Y-m-d')) $fail('Tanggal pelayanan tidak boleh di masa lalu.');
+        $overlap=$db->table('jadwal_setor')->where('aktif',true)->where('tanggal',$data['tanggal'])
+            ->when($id,fn($q)=>$q->where('id','<>',$id))->where('jam_buka','<',$data['jam_tutup'])->where('jam_tutup','>',$data['jam_buka'])->exists();
+        if ($overlap) $fail('Jam pelayanan bertumpang tindih dengan jadwal aktif lainnya.');
+        if ($id) {
+            unset($record['dibuat_oleh']);
+            if ($existing->tanggal !== $data['tanggal']) $record['ditutup_darurat']=false;
+            $db->table('jadwal_setor')->where('id',$id)->update($record);
+            return $id;
+        }
 
         $record['aktif'] = true;
         $record['ditutup_darurat'] = false;
         $record['created_at'] = now();
 
         return $db->table('jadwal_setor')->insertGetId($record);
+        });
     }
 
     /**

@@ -24,7 +24,7 @@
         </div>
         @if($dashboard)
         <div class="actions">
-            <button type="button" class="button" onclick="document.getElementById('jadwal-dialog').showModal()">@svg('heroicon-o-calendar', 'action-icon') Atur Jadwal Buka</button>
+            <button type="button" class="button" data-new-schedule>@svg('heroicon-o-calendar', 'action-icon') Tambah Jadwal Berikutnya</button>
             <a class="button primary" href="/petugas/setoran-baru">+ Setoran Baru</a>
         </div>
         @else
@@ -54,11 +54,11 @@
                     @svg('heroicon-o-calendar') {{ $jadwalInfo['jadwal'] ? 'Ubah Jadwal' : 'Buat Jadwal' }}
                 </button>
                 @if($jadwalInfo['jadwal'])
-                    <form method="post" action="/petugas/dashboard/jadwal/{{ $jadwalInfo['jadwal']->id }}/darurat" onsubmit="return confirm('{{ $jadwalInfo['is_emergency'] ? 'Buka kembali pelayanan normal?' : 'Tutup darurat pelayanan hari ini?' }}')">
+                    <form method="post" action="/petugas/dashboard/jadwal/{{ $jadwalInfo['jadwal']->id }}/darurat" onsubmit="return confirm('Ubah penutupan darurat untuk jadwal {{ $jadwalInfo['jadwal']->tanggal }}? Pembatalan darurat mengembalikan status sesuai jam pelayanan.')">
                         @csrf
                         <button type="submit" class="button {{ $jadwalInfo['is_emergency'] ? 'success-btn' : 'danger' }}">
                             @if($jadwalInfo['is_emergency'])
-                                @svg('heroicon-o-check-circle') Buka Kembali
+                                @svg('heroicon-o-check-circle') Kembali ke Jadwal Otomatis
                             @else
                                 @svg('heroicon-o-exclamation-triangle') Tutup Darurat
                             @endif
@@ -154,7 +154,7 @@
             <details class="collector-pricing"><summary>Rincian harga saat setoran dicatat</summary><p>Harga berikut berasal dari transaksi, bukan harga master terbaru. Histori liter tidak dikonversi ke kg.</p><div class="table-scroll"><table><thead><tr><th>Jenis</th><th>Jumlah</th><th>Harga beli/satuan</th><th>Harga jual/satuan</th></tr></thead><tbody>@forelse($breakdown as $d)<tr><td>{{ $d->nama_jenis }}</td><td>{{ number_format($d->jumlah,2,',','.') }} {{ $d->satuan }}</td><td>Rp{{ number_format($d->harga_beli_snapshot,0,',','.') }}/{{ $d->satuan }}</td><td>{{ $d->harga_jual_snapshot === null ? 'Belum tersedia' : 'Rp'.number_format($d->harga_jual_snapshot,0,',','.').'/'.$d->satuan }}</td></tr>@empty<tr><td colspan="4">Belum ada rincian pada periode ini.</td></tr>@endforelse</tbody></table></div></details>
         </section>
     @endif
-    <footer>Bank Sampah Rumah Hijau · Data PostgreSQL</footer>
+    <footer>Bank Sampah Rumah Hijau</footer>
 </main>
 
 @if($dashboard)
@@ -188,6 +188,7 @@
         </div>
     </form>
 </dialog>
+<script src="{{ asset('js/petugas-schedule.js') }}" defer></script>
 @endif
 </body>
 </html>

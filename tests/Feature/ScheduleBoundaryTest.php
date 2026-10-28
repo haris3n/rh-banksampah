@@ -26,7 +26,7 @@ class ScheduleBoundaryTest extends TestCase
             $this->assertTrue($service->getStatus()['is_open']);
             CarbonImmutable::setTestNow(CarbonImmutable::parse('2091-01-10 14:00:00','Asia/Jakarta'));
             $this->assertSame('SUDAH_TUTUP',$service->getStatus()['status']);
-            $next=$service->save($user,array_replace($data,['tanggal'=>'2091-02-10']),$id);
+            $next=$service->save($user,array_replace($data,['tanggal'=>'2091-02-10']));
             $this->assertNotEquals($id,$next);
             $this->assertSame('2091-01-10',$db->table('jadwal_setor')->where('id',$id)->value('tanggal'));
             CarbonImmutable::setTestNow(CarbonImmutable::parse('2091-01-11 00:00:00','Asia/Jakarta'));

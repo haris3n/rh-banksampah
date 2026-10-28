@@ -1,7 +1,7 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Petugas · Rumah Hijau</title><link rel="stylesheet" href="{{ asset('css/petugas-preview.css') }}"><link rel="stylesheet" href="{{ asset('css/petugas-operational.css') }}"></head><body>
 @include('petugas.sidebar')
 <script src="{{ asset('js/petugas-browse.js') }}" defer></script>
-<main><header><div><h1>{{ ['login'=>'Masuk sebagai Petugas','index'=>'Transaksi Hari Ini','form'=>'Input Setoran Baru','show'=>'Detail Setoran','customers'=>'Cari Nasabah'][$screen] }}</h1><p>{{ $screen === 'index' ? 'Pantau setoran nasabah dan periksa transaksi yang menunggu verifikasi.' : 'Bank Sampah Rumah Hijau · Jadwal setor belum diumumkan' }}</p></div>@if($screen === 'index')<div class="actions"><a class="button" href="{{ url('/petugas/export').'?'.http_build_query(['kind'=>'transaksi','from'=>$filters['from'],'to'=>$filters['to']]) }}">@svg('heroicon-o-arrow-down-tray','action-icon') Export selesai</a><a class="button primary" href="/petugas/setoran-baru">+ Setoran Baru</a></div>@endif</header>
+<main><header><div><h1>{{ ['login'=>'Masuk sebagai Petugas','index'=>'Transaksi Hari Ini','form'=>'Input Setoran Baru','show'=>'Detail Setoran','customers'=>'Cari Nasabah'][$screen] }}</h1><p>{{ $screen === 'index' ? 'Pantau setoran nasabah dan periksa transaksi yang menunggu verifikasi.' : 'Bank Sampah Rumah Hijau · Portal Petugas' }}</p></div>@if($screen === 'index')<div class="actions"><a class="button primary" href="{{ url('/petugas/export').'?'.http_build_query(['kind'=>'transaksi','from'=>$filters['from'],'to'=>$filters['to']]) }}">@svg('heroicon-o-arrow-down-tray','action-icon') Export XLSX Riwayat</a><a class="button primary" href="/petugas/setoran-baru">+ Setoran Baru</a></div>@endif</header>
 @if($errors->any())<div class="notice" role="alert"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 @if($screen === 'login')
 <section class="card" style="max-width:500px"><h2>Selamat datang kembali</h2><p>Gunakan akun petugas aktif yang dibuat admin.</p><form method="post" action="/petugas/login">@csrf<label>Email<input type="email" name="email" value="{{ old('email') }}" autocomplete="username" required></label><label>Password<input type="password" name="password" autocomplete="current-password" required></label><button class="button primary" style="margin-top:20px">Masuk</button></form></section>
@@ -431,4 +431,4 @@
 </script>
 @endif
 @endif
-<footer>Bank Sampah Rumah Hijau · Data PostgreSQL</footer></main></body></html>
+<footer>Bank Sampah Rumah Hijau</footer></main></body></html>
